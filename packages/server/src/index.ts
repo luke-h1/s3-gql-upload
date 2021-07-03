@@ -1,15 +1,16 @@
-import { gql, ApolloServer } from 'apollo-server';
+import { ApolloServer, gql } from 'apollo-server';
 import { AWSS3Uploader } from './lib/uploaders/s3';
 
 const s3Uploader = new AWSS3Uploader({
-  accessKeyId: process.env.AWS_ACCESS_KEY,
-  secretAccessKey: process.env.AWS_SECRET_KEY,
-  bucketName: process.env.AWS_BUCKET_NAME,
   region: process.env.AWS_BUCKET_REGION,
+  accessKeyId: process.env.AWS_ACCESS_KEY!,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  destinationBucketName: process.env.AWS_DESTINATION_BUCKET_NAME!,
 });
 
 const server = new ApolloServer({
   typeDefs: gql`
+  
     type UploadedFileResponse {
       filename: String!
       mimetype: String!
@@ -21,7 +22,7 @@ const server = new ApolloServer({
     }
     type Mutation {
       singleUpload(file: Upload!): UploadedFileResponse!
-      multipleUpload(files: [Upload!]!): UploadedFileResponse!
+      multipleUpload (files: [Upload!]!): UploadedFileResponse!
     }
   `,
   resolvers: {
@@ -29,11 +30,23 @@ const server = new ApolloServer({
       hello: () => 'Hey!',
     },
     Mutation: {
-      singleUpload: s3Uploader.singleFileUploadResolver.bind(AWSS3Uploader),
-      multipleUpload: s3Uploader.multipleUploadsResolver.bind(AWSS3Uploader),
+
+      /**
+       * This is where we hook up the file uploader that does all of the
+       * work of uploading the files. With Cloudinary and S3, it will:
+       *
+       * 1. Upload the file
+       * 2. Return an UploadedFileResponse with the url it was uploaded to.
+       *
+       * Feel free to pick through the code an IUploader in order to
+       */
+
+      singleUpload: s3Uploader.singleFileUploadResolver.bind(s3Uploader),
+      multipleUpload: s3Uploader.multipleUploadsResolver.bind(s3Uploader),
     },
   },
 });
+
 server.listen().then(({ url }) => {
-  console.log(`Server started on ${url}`);
+  console.log(`🚀 Server ready at ${url}`);
 });

@@ -1,7 +1,9 @@
+import UploadFile from '../components/UploadFile';
+
 const Home = () => {
   return (
     <>
-      hello
+      <UploadFile />
     </>
 
   );
