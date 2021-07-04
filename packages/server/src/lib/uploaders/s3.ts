@@ -1,90 +1,54 @@
-/* eslint-disable no-shadow */
-import AWS from 'aws-sdk';
-import stream from 'stream';
-import { ApolloServerFileUploads } from '../index';
+// store each image in it's own unique folder to avoid name duplicates
+import { v4 } from 'uuid';
 
-type S3UploadConfig = {
-  accessKeyId: string;
-  secretAccessKey: string;
-  region: string;
-  bucketName: string;
+const AWS = require('aws-sdk');
+
+// load config data from .env file
+require('dotenv').config();
+// update AWS config env data
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY,
+  secretAccessKey: process.env.AWS_SECRET_KEY,
+  region: process.env.AWS_BUCKET_REGION,
+  Bucket: process.env.AWS_BUCKET_NAME,
+});
+const s3 = new AWS.S3({ region: process.env.AWS_BUCKET_REGION });
+
+// my default params for s3 upload
+// I have a max upload size of 1 MB
+const s3DefaultParams = {
+  ACL: 'public-read',
+  Bucket: process.env.S3_BUCKET_NAME,
+  Conditions: [
+    ['content-length-range', 0, 3096000], // 3 Mb
+    { acl: 'public-read' },
+  ],
 };
 
-type S3UploadStream = {
-  writeStream: stream.PassThrough;
-  promise: Promise<AWS.S3.ManagedUpload.SendData>;
-};
+// the actual upload happens here
+// @ts-ignore
+export const handleFileUpload = async (file) => {
+  const { createReadStream, filename } = await file;
 
-export class AWSS3Uploader implements ApolloServerFileUploads.IUploader {
-  private s3: AWS.S3;
+  const key = v4();
 
-  public config: S3UploadConfig;
-
-  constructor(config: S3UploadConfig) {
-    AWS.config = new AWS.Config();
-    AWS.config.update({
-      signatureVersion: 's3v4',
-      region: config.region,
-      credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
+  return new Promise((resolve, reject) => {
+    s3.upload(
+      {
+        ...s3DefaultParams,
+        Body: createReadStream(),
+        Key: `${key}/${filename}`,
+        Bucket: process.env.AWS_BUCKET_NAME,
       },
-    });
-    this.s3 = new AWS.S3();
-    this.config = config;
-  }
-
-  private createUploadStream(key: string): S3UploadStream {
-    const pass = new stream.PassThrough();
-    return {
-      writeStream: pass,
-      promise: this.s3
-        .upload({
-          Bucket: this.config.bucketName,
-          Key: key,
-          Body: pass,
-        })
-        .promise(),
-    };
-  }
-
-  private createDestinationFilePath(
-    // @ts-ignore
-    fileName: string,
-    // @ts-ignore
-    mimetype: string,
-    // @ts-ignore
-    encoding: string,
-  ): string {
-    return fileName;
-  }
-
-  async singleFileUploadResolver(
-    //   @ts-ignore
-    parent,
-    { file }: { file: ApolloServerFileUploads.File },
-  ): Promise<ApolloServerFileUploads.UploadedFileResponse> {
-    const {
-      stream, filename, mimetype, encoding,
-    } = await file;
-    const filePath = this.createDestinationFilePath(filename, mimetype, encoding);
-    const uploadStream = this.createUploadStream(filePath);
-    // @ts-ignore
-    stream?.pipe(uploadStream.writeStream);
-    const result = await uploadStream.promise;
-    console.log(result.Location);
-    return {
-      filename, mimetype, encoding, url: result.Location,
-    };
-  }
-
-  async multipleUploadsResolver(
-    // @ts-ignore
-    parent,
-    { files }: { files: ApolloServerFileUploads.File[] },
-  ): Promise<ApolloServerFileUploads.UploadedFileResponse[]> {
-    return Promise.all(
-      files.map((f) => this.singleFileUploadResolver(null, { file: f })),
+      (err, data) => {
+        if (err) {
+          console.log('error uploading...', err);
+          reject(err);
+        } else {
+          console.log('successfully uploaded file...', data);
+          resolve(data);
+        }
+      },
     );
-  }
-}
+  });
+};
