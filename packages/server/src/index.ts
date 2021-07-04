@@ -1,6 +1,9 @@
 import { ApolloServer, gql } from 'apollo-server';
 import { handleFileUpload } from './utils/s3';
 
+// use node v12 - bug in apollo-server uploads
+// nvm install 12 && nvm use 12
+
 const server = new ApolloServer({
   typeDefs: gql`
     type S3Object {

@@ -5,7 +5,6 @@ const AWS = require('aws-sdk');
 
 /*
 set pub access to true in s3 console
-
 */
 
 AWS.config.update({
