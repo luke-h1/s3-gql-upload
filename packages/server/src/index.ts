@@ -1,5 +1,5 @@
 import { ApolloServer, gql } from 'apollo-server';
-import { handleFileUpload } from './lib/uploaders/s3';
+import { handleFileUpload } from './utils/s3';
 
 const server = new ApolloServer({
   typeDefs: gql`
