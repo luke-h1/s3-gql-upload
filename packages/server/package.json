@@ -28,7 +28,7 @@
   "dependencies": {
     "@types/node": "^16.3.3",
     "apollo-server": "^3.0.1",
-    "aws-sdk": "^2.948.0",
+    "aws-sdk": "^2.1320.0",
     "cross-env": "^7.0.3",
     "dotenv": "^10.0.0",
     "dotenv-safe": "^8.2.0",
